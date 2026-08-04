@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 public class UrlService {
 
     public CreateUrlResponse shortenUrl(CreateUrlRequest request) {
+        if (!request.url().startsWith("http://") && !request.url().startsWith("https://"))
+            throw new IllegalArgumentException();
+
         return new CreateUrlResponse(request.url());
     }
 

@@ -1,5 +1,6 @@
 package nvb.dev.urlshortener.controller;
 
+import jakarta.validation.Valid;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
 import nvb.dev.urlshortener.dto.CreateUrlResponse;
 import nvb.dev.urlshortener.service.UrlService;
@@ -21,7 +22,7 @@ public class UrlController {
     }
 
     @PostMapping
-    public ResponseEntity<CreateUrlResponse> shortenUrl(@RequestBody CreateUrlRequest createUrlRequest) {
+    public ResponseEntity<CreateUrlResponse> shortenUrl(@Valid @RequestBody CreateUrlRequest createUrlRequest) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(urlService.shortenUrl(createUrlRequest));
     }
