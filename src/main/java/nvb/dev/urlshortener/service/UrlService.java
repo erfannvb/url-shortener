@@ -43,6 +43,11 @@ public class UrlService {
         return mapShortUrlToResponse(savedShortUrl);
     }
 
+    public ShortUrl resolveShortCode(String shortCode) {
+        return urlRepository.findByShortCode(shortCode)
+                .orElseThrow(() -> new IllegalArgumentException("Short Url does not exist."));
+    }
+
     private String generateShortCode() {
         StringBuilder result = new StringBuilder(SHORT_CODE_LENGTH);
 
