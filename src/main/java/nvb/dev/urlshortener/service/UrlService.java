@@ -16,6 +16,7 @@ public class UrlService {
 
     private static final Random RANDOM = new Random();
     private static final int SHORT_CODE_LENGTH = 6;
+    private static final int MAX_GENERATION_ATTEMPTS = 10;
 
     private static final String CHARACTER_SET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -33,7 +34,7 @@ public class UrlService {
             return mapShortUrlToResponse(existingShortUrl.get());
         }
 
-        String shortCode = generateShortCode();
+        String shortCode = generateUniqueShortCode();
         ShortUrl newShortUrl = ShortUrl.builder()
                 .originalUrl(url)
                 .shortCode(shortCode)
@@ -57,6 +58,21 @@ public class UrlService {
         }
 
         return result.toString();
+    }
+
+    private String generateUniqueShortCode() {
+        String shortCode;
+
+        for (int i = 0; i < MAX_GENERATION_ATTEMPTS; i++) {
+            shortCode = generateShortCode();
+            Optional<ShortUrl> existingShortCode = urlRepository.findByShortCode(shortCode);
+            if (existingShortCode.isPresent())
+                continue;
+
+            return shortCode;
+        }
+
+        throw new IllegalArgumentException("Short code could not be generated.");
     }
 
     private CreateUrlResponse mapShortUrlToResponse(ShortUrl shortUrl) {
