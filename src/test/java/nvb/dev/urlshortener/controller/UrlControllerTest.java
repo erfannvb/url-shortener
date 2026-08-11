@@ -1,6 +1,8 @@
 package nvb.dev.urlshortener.controller;
 
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
+import nvb.dev.urlshortener.exception.InvalidUrlException;
+import nvb.dev.urlshortener.exception.ShortCodeGenerationException;
 import nvb.dev.urlshortener.service.UrlService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +33,9 @@ class UrlControllerTest {
     private UrlService urlService;
 
     @Test
-    void shortenUrl_whenServiceThrowsIllegalArgumentException_returnsBadRequest() throws Exception {
+    void shortenUrl_whenServiceThrowsInvalidUrlException_returnsBadRequest() throws Exception {
         when(urlService.shortenUrl(any(CreateUrlRequest.class)))
-                .thenThrow(new IllegalArgumentException("Url must start with http:// or https://"));
+                .thenThrow(new InvalidUrlException("Url must start with http:// or https://"));
 
         mockMvc.perform(post("/api/v1/urls")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -42,5 +44,19 @@ class UrlControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Url must start with http:// or https://"))
                 .andExpect(jsonPath("$.statusCode").value(400));
+    }
+
+    @Test
+    void shortenUrl_whenServiceThrowsShortCodeGenerationException_returnsInternalServerError() throws Exception {
+        when(urlService.shortenUrl(any(CreateUrlRequest.class)))
+                .thenThrow(new ShortCodeGenerationException("Short code could not be generated."));
+
+        mockMvc.perform(post("/api/v1/urls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CreateUrlRequest("https://amazon.com")))
+                )
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Short code could not be generated."))
+                .andExpect(jsonPath("$.statusCode").value(500));
     }
 }

@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import nvb.dev.urlshortener.domain.ShortUrl;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
 import nvb.dev.urlshortener.dto.CreateUrlResponse;
+import nvb.dev.urlshortener.exception.InvalidUrlException;
+import nvb.dev.urlshortener.exception.ShortCodeGenerationException;
+import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
 import nvb.dev.urlshortener.repository.UrlRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -29,7 +32,7 @@ public class UrlService {
         String normalizedUrl = url.toLowerCase();
 
         if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://"))
-            throw new IllegalArgumentException("Url must start with http:// or https://");
+            throw new InvalidUrlException("Url must start with http:// or https://");
 
         Optional<ShortUrl> existingShortUrl = urlRepository.findByOriginalUrl(url);
         if (existingShortUrl.isPresent()) {
@@ -48,7 +51,7 @@ public class UrlService {
 
     public ShortUrl resolveShortCode(String shortCode) {
         return urlRepository.findByShortCode(shortCode)
-                .orElseThrow(() -> new IllegalArgumentException("Short Url does not exist."));
+                .orElseThrow(() -> new ShortUrlNotFoundException("Short Url does not exist."));
     }
 
     private String generateShortCode() {
@@ -74,7 +77,7 @@ public class UrlService {
             return shortCode;
         }
 
-        throw new IllegalArgumentException("Short code could not be generated.");
+        throw new ShortCodeGenerationException("Short code could not be generated.");
     }
 
     private CreateUrlResponse mapShortUrlToResponse(ShortUrl shortUrl) {

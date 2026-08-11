@@ -4,6 +4,9 @@ import nvb.dev.urlshortener.MotherObject;
 import nvb.dev.urlshortener.domain.ShortUrl;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
 import nvb.dev.urlshortener.dto.CreateUrlResponse;
+import nvb.dev.urlshortener.exception.InvalidUrlException;
+import nvb.dev.urlshortener.exception.ShortCodeGenerationException;
+import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
 import nvb.dev.urlshortener.repository.UrlRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,7 +59,7 @@ class UrlServiceTest {
     @Test
     void shortenUrl_whenUrlDoesNotStartWithHttpOrHttps_rejectsTheUrl() {
         assertThatThrownBy(() -> urlService.shortenUrl(new CreateUrlRequest("dummy.com")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(InvalidUrlException.class)
                 .hasMessage("Url must start with http:// or https://");
 
         verifyNoInteractions(urlRepository);
@@ -101,7 +104,7 @@ class UrlServiceTest {
         when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(MotherObject.anyValidShortUrl()));
 
         assertThatThrownBy(() -> urlService.shortenUrl(new CreateUrlRequest("https://google.com")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ShortCodeGenerationException.class)
                 .hasMessage("Short code could not be generated.");
 
         verify(urlRepository, times(10)).findByShortCode(anyString());
@@ -127,7 +130,7 @@ class UrlServiceTest {
         when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> urlService.resolveShortCode("invalid"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ShortUrlNotFoundException.class)
                 .hasMessage("Short Url does not exist.");
 
         verify(urlRepository, times(1)).findByShortCode(anyString());
