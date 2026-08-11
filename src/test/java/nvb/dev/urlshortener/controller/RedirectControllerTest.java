@@ -1,5 +1,6 @@
 package nvb.dev.urlshortener.controller;
 
+import nvb.dev.urlshortener.MotherObject;
 import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
 import nvb.dev.urlshortener.service.UrlService;
 import org.junit.jupiter.api.Test;
@@ -12,8 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -24,6 +24,15 @@ class RedirectControllerTest {
 
     @MockitoBean
     private UrlService urlService;
+
+    @Test
+    void redirect_whenShortCodeExists_redirectsToOriginalUrl() throws Exception {
+        when(urlService.resolveShortCode(anyString())).thenReturn("https://google.com");
+
+        mockMvc.perform(get("/{shortCode}", "dummy"))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://google.com"));
+    }
 
     @Test
     void redirect_whenServiceThrowsShortUrlNotFoundException_returnsNotFound() throws Exception {
