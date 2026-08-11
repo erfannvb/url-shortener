@@ -27,7 +27,7 @@ public class UrlService {
         String normalizedUrl = url.toLowerCase();
 
         if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://"))
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Url must start with http:// or https://");
 
         Optional<ShortUrl> existingShortUrl = urlRepository.findByOriginalUrl(url);
         if (existingShortUrl.isPresent()) {
