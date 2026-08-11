@@ -49,8 +49,9 @@ public class UrlService {
         return mapShortUrlToResponse(savedShortUrl);
     }
 
-    public ShortUrl resolveShortCode(String shortCode) {
+    public String resolveShortCode(String shortCode) {
         return urlRepository.findByShortCode(shortCode)
+                .map(ShortUrl::getOriginalUrl)
                 .orElseThrow(() -> new ShortUrlNotFoundException("Short Url does not exist."));
     }
 

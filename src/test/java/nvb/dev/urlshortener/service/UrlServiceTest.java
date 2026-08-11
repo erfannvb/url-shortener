@@ -15,6 +15,7 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -112,14 +113,13 @@ class UrlServiceTest {
     }
 
     @Test
-    void resolveShortCode_whenShortCodeExists_returnsShortUrl() {
+    void resolveShortCode_whenShortCodeExists_returnsOriginalUrl() {
         when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(MotherObject.anyValidShortUrl()));
-        ShortUrl shortUrl = urlService.resolveShortCode("dummy");
+        String originalUrl = urlService.resolveShortCode("dummy");
         assertAll(
-                () -> assertThat(shortUrl).isNotNull(),
+                () -> assertThat(originalUrl).isNotNull(),
                 () -> {
-                    assert shortUrl != null;
-                    assertThat(shortUrl.getShortCode()).isEqualTo("dummy");
+                    assertThat(originalUrl).isEqualTo("dummy");
                 }
         );
         verify(urlRepository).findByShortCode(anyString());
@@ -138,6 +138,8 @@ class UrlServiceTest {
 
     @Test
     void shortenUrl_whenUrlDoesNotExist_savesCorrectShortUrl() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
         when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
         when(urlRepository.save(any(ShortUrl.class))).thenReturn(MotherObject.anyValidShortUrl());
 

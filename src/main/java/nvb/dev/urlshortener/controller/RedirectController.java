@@ -1,7 +1,6 @@
 package nvb.dev.urlshortener.controller;
 
 import lombok.RequiredArgsConstructor;
-import nvb.dev.urlshortener.domain.ShortUrl;
 import nvb.dev.urlshortener.service.UrlService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +18,10 @@ public class RedirectController {
 
     @GetMapping(path = "/{shortCode}")
     public ResponseEntity<Void> redirect(@PathVariable(name = "shortCode") String shortCode) {
-        ShortUrl shortUrl = urlService.resolveShortCode(shortCode);
+        String originalUrl = urlService.resolveShortCode(shortCode);
         return ResponseEntity
                 .status(HttpStatus.FOUND)
-                .location(URI.create(shortUrl.getOriginalUrl()))
+                .location(URI.create(originalUrl))
                 .build();
     }
 
