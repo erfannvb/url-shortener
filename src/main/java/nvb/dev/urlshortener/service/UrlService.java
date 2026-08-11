@@ -5,6 +5,7 @@ import nvb.dev.urlshortener.domain.ShortUrl;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
 import nvb.dev.urlshortener.dto.CreateUrlResponse;
 import nvb.dev.urlshortener.repository.UrlRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -15,7 +16,8 @@ import java.util.Random;
 public class UrlService {
 
     private static final Random RANDOM = new Random();
-    private static final int SHORT_CODE_LENGTH = 6;
+    @Value("${url.short.code.length}")
+    private int shortCodeLength;
     private static final int MAX_GENERATION_ATTEMPTS = 10;
 
     private static final String CHARACTER_SET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -50,9 +52,9 @@ public class UrlService {
     }
 
     private String generateShortCode() {
-        StringBuilder result = new StringBuilder(SHORT_CODE_LENGTH);
+        StringBuilder result = new StringBuilder(shortCodeLength);
 
-        for (int i = 0; i < SHORT_CODE_LENGTH; i++) {
+        for (int i = 0; i < shortCodeLength; i++) {
             int index = RANDOM.nextInt(CHARACTER_SET.length());
             result.append(CHARACTER_SET.charAt(index));
         }
