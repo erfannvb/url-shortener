@@ -16,6 +16,7 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -201,5 +202,21 @@ class UrlServiceTest {
                     assertThat(value.getShortCode().length()).isEqualTo(6);
                 }
         );
+    }
+
+    @Test
+    void shortenUrl_whenSavingShortCodeCausesConstraintViolation_retriesWithAnotherCode() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class)))
+                .thenThrow(new DataIntegrityViolationException(""))
+                .thenReturn(MotherObject.anyValidShortUrl());
+
+        CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("https://google.com"));
+
+        assertThat(response.shortenedUrl()).isNotBlank();
+
+        verify(urlRepository, times(2)).findByShortCode(anyString());
+        verify(urlRepository, times(2)).save(any(ShortUrl.class));
     }
 }

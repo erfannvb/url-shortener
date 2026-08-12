@@ -10,6 +10,7 @@ import nvb.dev.urlshortener.exception.ShortCodeGenerationException;
 import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
 import nvb.dev.urlshortener.repository.UrlRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -40,14 +41,8 @@ public class UrlService {
             return mapShortUrlToResponse(existingShortUrl.get());
         }
 
-        String shortCode = generateUniqueShortCode();
-        ShortUrl newShortUrl = ShortUrl.builder()
-                .originalUrl(url)
-                .shortCode(shortCode)
-                .build();
-
-        ShortUrl savedShortUrl = urlRepository.save(newShortUrl);
-        return mapShortUrlToResponse(savedShortUrl);
+        ShortUrl shortUrl = generateUniqueShortCode(url);
+        return mapShortUrlToResponse(shortUrl);
     }
 
     public String resolveShortCode(String shortCode) {
@@ -73,7 +68,7 @@ public class UrlService {
         return result.toString();
     }
 
-    private String generateUniqueShortCode() {
+    private ShortUrl generateUniqueShortCode(String originalUrl) {
         String shortCode;
 
         for (int i = 0; i < MAX_GENERATION_ATTEMPTS; i++) {
@@ -82,7 +77,17 @@ public class UrlService {
             if (existingShortCode.isPresent())
                 continue;
 
-            return shortCode;
+            ShortUrl shortUrl = ShortUrl.builder()
+                    .originalUrl(originalUrl)
+                    .shortCode(shortCode)
+                    .build();
+
+            try {
+                return urlRepository.save(shortUrl);
+            } catch (DataIntegrityViolationException e) {
+                continue;
+            }
+
         }
 
         throw new ShortCodeGenerationException("Short code could not be generated.");
