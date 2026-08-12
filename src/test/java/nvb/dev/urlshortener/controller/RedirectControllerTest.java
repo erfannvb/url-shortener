@@ -1,6 +1,6 @@
 package nvb.dev.urlshortener.controller;
 
-import nvb.dev.urlshortener.MotherObject;
+import nvb.dev.urlshortener.exception.InvalidShortCodeException;
 import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
 import nvb.dev.urlshortener.service.UrlService;
 import org.junit.jupiter.api.Test;
@@ -32,6 +32,35 @@ class RedirectControllerTest {
         mockMvc.perform(get("/{shortCode}", "dummy"))
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", "https://google.com"));
+    }
+
+    @Test
+    void redirect_whenShortCodeIsTooShort_returnsBadRequest() throws Exception {
+        when(urlService.resolveShortCode(anyString()))
+                .thenThrow(new InvalidShortCodeException("Short code is too short."));
+        mockMvc.perform(get("/{shortCode}", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Short code is too short."))
+                .andExpect(jsonPath("$.statusCode").value(400));
+    }
+
+    @Test
+    void redirect_whenShortCodeIsTooLong_returnsBadRequest() throws Exception {
+        when(urlService.resolveShortCode(anyString())).thenThrow(new InvalidShortCodeException("Short code is too long."));
+        mockMvc.perform(get("/{shortCode}", "abcdefg"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Short code is too long."))
+                .andExpect(jsonPath("$.statusCode").value(400));
+    }
+
+    @Test
+    void redirect_whenShortCodeContainsInvalidCharacter_returnsBadRequest() throws Exception {
+        when(urlService.resolveShortCode(anyString()))
+                .thenThrow(new InvalidShortCodeException("Short code contains an invalid character."));
+        mockMvc.perform(get("/{shortCode}", "a@bcde"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Short code contains an invalid character."))
+                .andExpect(jsonPath("$.statusCode").value(400));
     }
 
     @Test
