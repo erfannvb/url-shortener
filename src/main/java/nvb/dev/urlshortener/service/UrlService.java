@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import nvb.dev.urlshortener.domain.ShortUrl;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
 import nvb.dev.urlshortener.dto.CreateUrlResponse;
+import nvb.dev.urlshortener.exception.InvalidShortCodeException;
 import nvb.dev.urlshortener.exception.InvalidUrlException;
 import nvb.dev.urlshortener.exception.ShortCodeGenerationException;
 import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
@@ -50,6 +51,12 @@ public class UrlService {
     }
 
     public String resolveShortCode(String shortCode) {
+        int length = shortCode.length();
+        if (length < shortCodeLength) throw new InvalidShortCodeException("Short code is too short.");
+        if (length > shortCodeLength) throw new InvalidShortCodeException("Short code is too long.");
+        if (!containsOnlyAllowedCharacters(shortCode))
+            throw new InvalidShortCodeException("Short code contains an invalid character.");
+
         return urlRepository.findByShortCode(shortCode)
                 .map(ShortUrl::getOriginalUrl)
                 .orElseThrow(() -> new ShortUrlNotFoundException("Short Url does not exist."));
@@ -79,6 +86,15 @@ public class UrlService {
         }
 
         throw new ShortCodeGenerationException("Short code could not be generated.");
+    }
+
+    private boolean containsOnlyAllowedCharacters(String shortCode) {
+        for (char ch : shortCode.toCharArray()) {
+            if (CHARACTER_SET.indexOf(ch) < 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private CreateUrlResponse mapShortUrlToResponse(ShortUrl shortUrl) {

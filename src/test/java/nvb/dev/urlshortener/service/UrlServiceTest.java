@@ -4,6 +4,7 @@ import nvb.dev.urlshortener.MotherObject;
 import nvb.dev.urlshortener.domain.ShortUrl;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
 import nvb.dev.urlshortener.dto.CreateUrlResponse;
+import nvb.dev.urlshortener.exception.InvalidShortCodeException;
 import nvb.dev.urlshortener.exception.InvalidUrlException;
 import nvb.dev.urlshortener.exception.ShortCodeGenerationException;
 import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
@@ -126,10 +127,45 @@ class UrlServiceTest {
     }
 
     @Test
+    void resolveShortCode_whenShortCodeIsTooShort_throwsException() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        assertThatThrownBy(() -> urlService.resolveShortCode("abc"))
+                .isInstanceOf(InvalidShortCodeException.class)
+                .hasMessage("Short code is too short.");
+
+        verifyNoInteractions(urlRepository);
+    }
+
+    @Test
+    void resolveShortCode_whenShortCodeIsTooLong_throwsException() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        assertThatThrownBy(() -> urlService.resolveShortCode("abcdefg"))
+                .isInstanceOf(InvalidShortCodeException.class)
+                .hasMessage("Short code is too long.");
+
+        verifyNoInteractions(urlRepository);
+    }
+
+    @Test
+    void resolveShortCode_whenShortCodeContainsInvalidCharacter_throwsException() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        assertThatThrownBy(() -> urlService.resolveShortCode("ab@!df"))
+                .isInstanceOf(InvalidShortCodeException.class)
+                .hasMessage("Short code contains an invalid character.");
+
+        verifyNoInteractions(urlRepository);
+    }
+
+    @Test
     void resolveShortCode_whenShortCodeDoesNotExist_throwsException() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
         when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> urlService.resolveShortCode("invalid"))
+        assertThatThrownBy(() -> urlService.resolveShortCode("abcdef"))
                 .isInstanceOf(ShortUrlNotFoundException.class)
                 .hasMessage("Short Url does not exist.");
 

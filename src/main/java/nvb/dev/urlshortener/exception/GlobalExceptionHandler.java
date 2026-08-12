@@ -46,4 +46,16 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
+    @ExceptionHandler(InvalidShortCodeException.class)
+    public ResponseEntity<Object> handleInvalidShortCodeException(InvalidShortCodeException ex) {
+        ErrorApiResponse response = ErrorApiResponse.builder()
+                .message(ex.getMessage())
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
 }
