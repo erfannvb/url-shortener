@@ -18,4 +18,22 @@ public class MotherObject {
         );
     }
 
+    public static ShortUrl validShortUrlForIntegrationTest() {
+        return new ShortUrl(
+                null,
+                "https://youtube.com",
+                "abc123",
+                LocalDateTime.now()
+        );
+    }
+
+    public static ShortUrl validShortUrlWithExistingShortUrl() {
+        return new ShortUrl(
+                null,
+                "https://existing.com",
+                "abc123",
+                LocalDateTime.now()
+        );
+    }
+
 }
