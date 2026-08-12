@@ -1,6 +1,7 @@
 package nvb.dev.urlshortener.controller;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
 import nvb.dev.urlshortener.dto.CreateUrlResponse;
 import nvb.dev.urlshortener.service.UrlService;
@@ -13,13 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping(path = "/api/v1/urls")
+@RequiredArgsConstructor
 public class UrlController {
 
     private final UrlService urlService;
-
-    public UrlController(UrlService urlService) {
-        this.urlService = urlService;
-    }
 
     @PostMapping
     public ResponseEntity<CreateUrlResponse> shortenUrl(@Valid @RequestBody CreateUrlRequest createUrlRequest) {
