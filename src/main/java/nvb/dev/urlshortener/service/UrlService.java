@@ -12,6 +12,7 @@ import nvb.dev.urlshortener.repository.UrlRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.Random;
@@ -29,6 +30,7 @@ public class UrlService {
 
     private final UrlRepository urlRepository;
 
+    @Transactional
     public CreateUrlResponse shortenUrl(CreateUrlRequest request) {
         String url = request.url();
         String normalizedUrl = url.toLowerCase();
