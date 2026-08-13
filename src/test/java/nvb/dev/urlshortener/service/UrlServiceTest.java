@@ -234,4 +234,18 @@ class UrlServiceTest {
         verify(urlRepository, times(2)).findByShortCode(anyString());
         verify(urlRepository, times(2)).save(any(ShortUrl.class));
     }
+
+    @Test
+    void shortenUrl_whenAllShortCodeGenerationAttemptsFail_throwsException() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenThrow(new DataIntegrityViolationException(""));
+
+        assertThatThrownBy(() -> urlService.shortenUrl(new CreateUrlRequest("https://google.com")))
+                .isInstanceOf(ShortCodeGenerationException.class)
+                .hasMessage("Short code could not be generated.");
+
+        verify(urlRepository, times(10)).findByShortCode(anyString());
+        verify(urlRepository, times(10)).save(any(ShortUrl.class));
+    }
 }
