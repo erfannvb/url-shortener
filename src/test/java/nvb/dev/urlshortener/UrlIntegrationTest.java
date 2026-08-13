@@ -3,6 +3,7 @@ package nvb.dev.urlshortener;
 import nvb.dev.urlshortener.domain.ShortUrl;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
 import nvb.dev.urlshortener.repository.UrlRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,6 +33,11 @@ public class UrlIntegrationTest {
 
     @Autowired
     private UrlRepository urlRepository;
+
+    @BeforeEach
+    void cleanDatabase() {
+        urlRepository.deleteAll();
+    }
 
     @Test
     void createUrl_whenValidUrl_persistsUrlAndReturnsCreated() throws Exception {

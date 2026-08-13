@@ -116,8 +116,10 @@ class UrlServiceTest {
 
     @Test
     void resolveShortCode_whenShortCodeExists_returnsOriginalUrl() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
         when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(MotherObject.anyValidShortUrl()));
-        String originalUrl = urlService.resolveShortCode("dummy");
+        String originalUrl = urlService.resolveShortCode("abc123");
         assertAll(
                 () -> assertThat(originalUrl).isNotNull(),
                 () -> {
