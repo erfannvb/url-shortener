@@ -87,6 +87,8 @@ class UrlServiceTest {
 
     @Test
     void shortenUrl_whenGeneratedShortCodeCollides_retriesWithAnotherCode() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
         when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
         when(urlRepository.findByShortCode(anyString()))
                 .thenReturn(Optional.of(MotherObject.anyValidShortUrl()))
@@ -98,7 +100,14 @@ class UrlServiceTest {
         assertThat(response).isNotNull();
 
         verify(urlRepository, times(2)).findByShortCode(anyString());
-        verify(urlRepository, times(1)).save(any(ShortUrl.class));
+        verify(urlRepository, times(1)).save(shortUrlArgumentCaptor.capture());
+
+        ShortUrl shortUrl = shortUrlArgumentCaptor.getValue();
+        assertThat(shortUrl).isNotNull();
+        assertThat(shortUrl.getOriginalUrl()).isEqualTo("https://google.com");
+        assertThat(shortUrl.getShortCode())
+                .isNotBlank()
+                .hasSize(6);
     }
 
     @Test
@@ -208,15 +217,19 @@ class UrlServiceTest {
 
     @Test
     void shortenUrl_whenSavingShortCodeCausesConstraintViolation_retriesWithAnotherCode() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
         when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
         when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.empty());
         when(urlRepository.save(any(ShortUrl.class)))
                 .thenThrow(new DataIntegrityViolationException(""))
-                .thenReturn(MotherObject.anyValidShortUrl());
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("https://google.com"));
 
+        assertThat(response).isNotNull();
         assertThat(response.shortenedUrl()).isNotBlank();
+        assertThat(response.shortenedUrl()).hasSize(6);
 
         verify(urlRepository, times(2)).findByShortCode(anyString());
         verify(urlRepository, times(2)).save(any(ShortUrl.class));
