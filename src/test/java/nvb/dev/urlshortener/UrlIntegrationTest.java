@@ -2,6 +2,7 @@ package nvb.dev.urlshortener;
 
 import nvb.dev.urlshortener.domain.ShortUrl;
 import nvb.dev.urlshortener.dto.CreateUrlRequest;
+import nvb.dev.urlshortener.dto.CreateUrlResponse;
 import nvb.dev.urlshortener.repository.UrlRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
@@ -44,18 +46,24 @@ public class UrlIntegrationTest {
 
     @Test
     void createUrl_whenValidUrl_persistsUrlAndReturnsCreated() throws Exception {
-        mockMvc.perform(post("/api/v1/urls")
+        MvcResult mvcResult = mockMvc.perform(post("/api/v1/urls")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new CreateUrlRequest("https://youtube.com")))
                 )
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn();
 
-        Optional<ShortUrl> shortUrl = urlRepository.findByOriginalUrl("https://youtube.com");
+        ShortUrl shortUrl = urlRepository.findByOriginalUrl("https://youtube.com").orElseThrow();
 
-        assertThat(shortUrl).isPresent();
-        assertThat(shortUrl.get().getOriginalUrl()).isEqualTo("https://youtube.com");
-        assertThat(shortUrl.get().getShortCode()).isNotBlank();
-        assertThat(shortUrl.get().getShortCode()).hasSize(6);
+        String expectedLocation = "http://localhost/" + shortUrl.getShortCode();
+        assertThat(mvcResult.getResponse().getHeader("Location")).isEqualTo(expectedLocation);
+
+        CreateUrlResponse response = objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CreateUrlResponse.class);
+        assertThat(response.shortenedUrl()).isEqualTo(expectedLocation);
+
+        assertThat(shortUrl.getOriginalUrl()).isEqualTo("https://youtube.com");
+        assertThat(shortUrl.getShortCode()).isNotBlank();
+        assertThat(shortUrl.getShortCode()).hasSize(6);
     }
 
     @Test
