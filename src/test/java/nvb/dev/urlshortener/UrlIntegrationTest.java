@@ -144,4 +144,37 @@ public class UrlIntegrationTest {
         assertThat(newShortUrl).isPresent();
         assertThat(newShortUrl.get().getShortCode()).isNotEqualTo("abc123");
     }
+
+    @Test
+    void createUrl_whenUrlIsMissing_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/urls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CreateUrlRequest(null)))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("url cannot be blank."))
+                .andExpect(jsonPath("$.statusCode").value(400));
+    }
+
+    @Test
+    void createUrl_whenUrlIsBlank_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/urls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CreateUrlRequest("")))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("url cannot be blank."))
+                .andExpect(jsonPath("$.statusCode").value(400));
+    }
+
+    @Test
+    void createUrl_whenUrlContainsWhiteSpacesOnly_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/urls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CreateUrlRequest("   ")))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("url cannot be blank."))
+                .andExpect(jsonPath("$.statusCode").value(400));
+    }
 }
