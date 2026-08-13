@@ -14,7 +14,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -84,8 +84,9 @@ public class UrlIntegrationTest {
                 )
                 .andExpect(status().isCreated());
 
-        Optional<ShortUrl> firstShortUrl = urlRepository.findByOriginalUrl("https://google.com");
-        String firstShortCode = firstShortUrl.get().getShortCode();
+        ShortUrl firstShortUrl = urlRepository
+                .findByOriginalUrl("https://google.com")
+                .orElseThrow();
 
         mockMvc.perform(post("/api/v1/urls")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -93,10 +94,14 @@ public class UrlIntegrationTest {
                 )
                 .andExpect(status().isCreated());
 
-        Optional<ShortUrl> secondShortUrl = urlRepository.findByOriginalUrl("https://google.com");
-        String secondShortCode = secondShortUrl.get().getShortCode();
+        ShortUrl secondShortUrl = urlRepository
+                .findByOriginalUrl("https://google.com")
+                .orElseThrow();
 
-        assertThat(firstShortCode).isEqualTo(secondShortCode);
+        List<ShortUrl> urls = urlRepository.findAllByOriginalUrl("https://google.com");
+
+        assertThat(secondShortUrl.getShortCode()).isEqualTo(firstShortUrl.getShortCode());
+        assertThat(urls).hasSize(1);
     }
 
     @Test
