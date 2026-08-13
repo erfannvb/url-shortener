@@ -36,4 +36,13 @@ public class MotherObject {
         );
     }
 
+    public static ShortUrl anyValidDupliateShortUrl() {
+        return new ShortUrl(
+                null,
+                "https://example.com",
+                "abc123",
+                LocalDateTime.now()
+        );
+    }
+
 }

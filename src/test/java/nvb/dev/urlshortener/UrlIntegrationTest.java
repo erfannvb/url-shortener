@@ -8,14 +8,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -182,5 +185,16 @@ public class UrlIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("url cannot be blank."))
                 .andExpect(jsonPath("$.statusCode").value(400));
+    }
+
+    @Test
+    void saveShortUrl_whenShortCodeAlreadyExists_throwsDataIntegrityViolationException() {
+        ShortUrl shortUrl = MotherObject.validShortUrlForIntegrationTest();
+        urlRepository.save(shortUrl);
+
+        ShortUrl duplicate = MotherObject.anyValidDupliateShortUrl();
+
+        assertThatThrownBy(() -> urlRepository.saveAndFlush(duplicate))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 }
