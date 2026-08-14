@@ -40,6 +40,9 @@ class UrlServiceTest {
     @Captor
     ArgumentCaptor<ShortUrl> shortUrlArgumentCaptor;
 
+    @Captor
+    ArgumentCaptor<String> originalUrlArgumentCaptor;
+
     @Test
     void shortenUrl_whenUrlDoesNotExist_createsAndReturnsShortUrl() {
         when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
@@ -63,7 +66,7 @@ class UrlServiceTest {
     void shortenUrl_whenUrlDoesNotStartWithHttpOrHttps_rejectsTheUrl() {
         assertThatThrownBy(() -> urlService.shortenUrl(new CreateUrlRequest("dummy.com")))
                 .isInstanceOf(InvalidUrlException.class)
-                .hasMessage("Url must start with http:// or https://");
+                .hasMessage("Invalid URL.");
 
         verifyNoInteractions(urlRepository);
     }
@@ -247,5 +250,145 @@ class UrlServiceTest {
 
         verify(urlRepository, times(10)).findByShortCode(anyString());
         verify(urlRepository, times(10)).save(any(ShortUrl.class));
+    }
+
+    @Test
+    void shortenUrl_whenSchemeIsUppercase_normalizesSchemeToLowercase() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenReturn(MotherObject.anyValidShortUrl());
+
+        CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("HTTPS://google.com"));
+
+        assertAll(
+                () -> assertThat(response).isNotNull(),
+                () -> {
+                    assert response != null;
+                    assertThat(response.shortenedUrl()).isNotBlank();
+                }
+        );
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).save(shortUrlArgumentCaptor.capture());
+
+        String originalUrl = shortUrlArgumentCaptor.getValue().getOriginalUrl();
+        assertThat(originalUrl).isEqualTo("https://google.com");
+    }
+
+    @Test
+    void shortenUrl_whenHostnameContainsUppercase_normalizesHostnameToLowercase() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenReturn(MotherObject.anyValidShortUrl());
+
+        CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("https://GOoGlE.com"));
+
+        assertAll(
+                () -> assertThat(response).isNotNull(),
+                () -> {
+                    assert response != null;
+                    assertThat(response.shortenedUrl()).isNotBlank();
+                }
+        );
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).save(shortUrlArgumentCaptor.capture());
+
+        String originalUrl = shortUrlArgumentCaptor.getValue().getOriginalUrl();
+        assertThat(originalUrl).isEqualTo("https://google.com");
+    }
+
+    @Test
+    void shortenUrl_whenPathContainsUppercase_preservesPathCase() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenReturn(MotherObject.anyValidShortUrl());
+
+        CreateUrlResponse response = urlService.shortenUrl(
+                new CreateUrlRequest("https://google.com/PATH")
+        );
+
+        assertAll(
+                () -> assertThat(response).isNotNull(),
+                () -> {
+                    assert response != null;
+                    assertThat(response.shortenedUrl()).isNotBlank();
+                }
+        );
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).save(shortUrlArgumentCaptor.capture());
+
+        String originalUrl = shortUrlArgumentCaptor.getValue().getOriginalUrl();
+        assertThat(originalUrl).isEqualTo("https://google.com/PATH");
+    }
+
+    @Test
+    void shortenUrl_whenQueryContainsUppercase_preservesQueryCase() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenReturn(MotherObject.anyValidShortUrl());
+
+        CreateUrlResponse response = urlService.shortenUrl(
+                new CreateUrlRequest("https://google.com/PATH?Name=string")
+        );
+
+        assertAll(
+                () -> assertThat(response).isNotNull(),
+                () -> {
+                    assert response != null;
+                    assertThat(response.shortenedUrl()).isNotBlank();
+                }
+        );
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).save(shortUrlArgumentCaptor.capture());
+
+        String originalUrl = shortUrlArgumentCaptor.getValue().getOriginalUrl();
+        assertThat(originalUrl).isEqualTo("https://google.com/PATH?Name=string");
+    }
+
+    @Test
+    void shortenUrl_whenFragmentContainsUppercase_preservesFragmentCase() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenReturn(MotherObject.anyValidShortUrl());
+
+        CreateUrlResponse response = urlService.shortenUrl(
+                new CreateUrlRequest("https://google.com/PATH#Fragment=1")
+        );
+
+        assertAll(
+                () -> assertThat(response).isNotNull(),
+                () -> {
+                    assert response != null;
+                    assertThat(response.shortenedUrl()).isNotBlank();
+                }
+        );
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).save(shortUrlArgumentCaptor.capture());
+
+        String originalUrl = shortUrlArgumentCaptor.getValue().getOriginalUrl();
+        assertThat(originalUrl).isEqualTo("https://google.com/PATH#Fragment=1");
+    }
+
+    @Test
+    void shortenUrl_whenNormalizedUrlAlreadyExists_returnsExistingShortCode() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.of(MotherObject.anyValidShortUrl()));
+
+        CreateUrlResponse response = urlService.shortenUrl(
+                new CreateUrlRequest("HTTPS://Example.COM")
+        );
+
+        assertAll(
+                () -> assertThat(response).isNotNull(),
+                () -> {
+                    assert response != null;
+                    assertThat(response.shortenedUrl()).isNotBlank();
+                }
+        );
+
+        verify(urlRepository).findByOriginalUrl(originalUrlArgumentCaptor.capture());
+
+        String originalUrl = originalUrlArgumentCaptor.getValue();
+        assertThat(originalUrl).isEqualTo("https://example.com");
+
+        verify(urlRepository, never()).save(any(ShortUrl.class));
     }
 }

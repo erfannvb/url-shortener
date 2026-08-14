@@ -9,11 +9,14 @@ import nvb.dev.urlshortener.exception.InvalidUrlException;
 import nvb.dev.urlshortener.exception.ShortCodeGenerationException;
 import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
 import nvb.dev.urlshortener.repository.UrlRepository;
+import org.apache.commons.validator.routines.UrlValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.Random;
 
@@ -28,22 +31,25 @@ public class UrlService {
 
     private static final String CHARACTER_SET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+    private static final UrlValidator URL_VALIDATOR = new UrlValidator(new String[]{"http", "https"});
+
     private final UrlRepository urlRepository;
 
     @Transactional
     public CreateUrlResponse shortenUrl(CreateUrlRequest request) {
         String url = request.url();
-        String normalizedUrl = url.toLowerCase();
 
-        if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://"))
-            throw new InvalidUrlException("Url must start with http:// or https://");
+        if (!URL_VALIDATOR.isValid(url))
+            throw new InvalidUrlException("Invalid URL.");
 
-        Optional<ShortUrl> existingShortUrl = urlRepository.findByOriginalUrl(url);
+        String normalizedUrl = normalizeUrl(url);
+
+        Optional<ShortUrl> existingShortUrl = urlRepository.findByOriginalUrl(normalizedUrl);
         if (existingShortUrl.isPresent()) {
             return mapShortUrlToResponse(existingShortUrl.get());
         }
 
-        ShortUrl shortUrl = generateUniqueShortCode(url);
+        ShortUrl shortUrl = generateUniqueShortCode(normalizedUrl);
         return mapShortUrlToResponse(shortUrl);
     }
 
@@ -102,6 +108,24 @@ public class UrlService {
             }
         }
         return true;
+    }
+
+    private String normalizeUrl(final String originalUrl) {
+        try {
+            URI uri = new URI(originalUrl);
+            URI normalizedUri = new URI(
+                    uri.getScheme().toLowerCase(),
+                    uri.getUserInfo(),
+                    uri.getHost() != null ? uri.getHost().toLowerCase() : null,
+                    uri.getPort(),
+                    uri.getPath(),
+                    uri.getQuery(),
+                    uri.getFragment()
+            );
+            return normalizedUri.toString();
+        } catch (URISyntaxException e) {
+            throw new InvalidUrlException("Invalid URL.");
+        }
     }
 
     private CreateUrlResponse mapShortUrlToResponse(ShortUrl shortUrl) {
