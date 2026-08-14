@@ -9,6 +9,8 @@ public class MotherObject {
 
     public static final String ANY_STRING = "dummy";
 
+    public static final String ALLOWED_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
     public static ShortUrl anyValidShortUrl() {
         return new ShortUrl(
                 UUID.randomUUID(),

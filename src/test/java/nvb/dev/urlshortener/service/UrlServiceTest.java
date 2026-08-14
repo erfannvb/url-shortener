@@ -391,4 +391,23 @@ class UrlServiceTest {
 
         verify(urlRepository, never()).save(any(ShortUrl.class));
     }
+
+    @Test
+    void shortenUrl_whenGeneratingShortCode_generatesCodeWithValidLengthAndCharacters() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenReturn(MotherObject.anyValidShortUrl());
+
+        CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("https://google.com"));
+
+        assertThat(response).isNotNull();
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).save(shortUrlArgumentCaptor.capture());
+
+        String shortCode = shortUrlArgumentCaptor.getValue().getShortCode();
+        assertThat(shortCode).hasSize(6);
+        assertThat(shortCode.chars()).allMatch(ch -> MotherObject.ALLOWED_CHARS.indexOf(ch) >= 0);
+    }
 }

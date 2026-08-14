@@ -17,14 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.SecureRandom;
 import java.util.Optional;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
 public class UrlService {
 
-    private static final Random RANDOM = new Random();
+    private static final SecureRandom RANDOM = new SecureRandom();
     @Value("${url.short.code.length}")
     private int shortCodeLength;
     private static final int MAX_GENERATION_ATTEMPTS = 10;
