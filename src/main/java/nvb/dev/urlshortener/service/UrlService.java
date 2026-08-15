@@ -25,13 +25,13 @@ import java.util.Optional;
 public class UrlService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final int MAX_GENERATION_ATTEMPTS = 10;
+    private static final UrlValidator URL_VALIDATOR = new UrlValidator(new String[]{"http", "https"});
+
     @Value("${url.short.code.length}")
     private int shortCodeLength;
-    private static final int MAX_GENERATION_ATTEMPTS = 10;
-
-    private static final String CHARACTER_SET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-    private static final UrlValidator URL_VALIDATOR = new UrlValidator(new String[]{"http", "https"});
+    @Value("${url.short.code.characters}")
+    private String characterSet;
 
     private final UrlRepository urlRepository;
 
@@ -69,8 +69,8 @@ public class UrlService {
         StringBuilder result = new StringBuilder(shortCodeLength);
 
         for (int i = 0; i < shortCodeLength; i++) {
-            int index = RANDOM.nextInt(CHARACTER_SET.length());
-            result.append(CHARACTER_SET.charAt(index));
+            int index = RANDOM.nextInt(characterSet.length());
+            result.append(characterSet.charAt(index));
         }
 
         return result.toString();
@@ -102,12 +102,8 @@ public class UrlService {
     }
 
     private boolean containsOnlyAllowedCharacters(String shortCode) {
-        for (char ch : shortCode.toCharArray()) {
-            if (CHARACTER_SET.indexOf(ch) < 0) {
-                return false;
-            }
-        }
-        return true;
+        return shortCode.chars()
+                .allMatch(ch -> characterSet.indexOf(ch) >= 0);
     }
 
     private String normalizeUrl(final String originalUrl) {

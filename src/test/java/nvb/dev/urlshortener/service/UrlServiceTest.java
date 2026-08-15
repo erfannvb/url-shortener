@@ -9,6 +9,7 @@ import nvb.dev.urlshortener.exception.InvalidUrlException;
 import nvb.dev.urlshortener.exception.ShortCodeGenerationException;
 import nvb.dev.urlshortener.exception.ShortUrlNotFoundException;
 import nvb.dev.urlshortener.repository.UrlRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -42,6 +43,11 @@ class UrlServiceTest {
 
     @Captor
     ArgumentCaptor<String> originalUrlArgumentCaptor;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(urlService, "characterSet", MotherObject.ALLOWED_CHARS);
+    }
 
     @Test
     void shortenUrl_whenUrlDoesNotExist_createsAndReturnsShortUrl() {
@@ -409,5 +415,32 @@ class UrlServiceTest {
         String shortCode = shortUrlArgumentCaptor.getValue().getShortCode();
         assertThat(shortCode).hasSize(6);
         assertThat(shortCode.chars()).allMatch(ch -> MotherObject.ALLOWED_CHARS.indexOf(ch) >= 0);
+    }
+
+    @Test
+    void resolveShortCode_whenShortCodeContainsConfiguredCharacter_acceptsIt() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 3);
+        ReflectionTestUtils.setField(urlService, "characterSet", "ab1");
+
+        when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(MotherObject.anyValidShortUrl()));
+
+        String shortCode = urlService.resolveShortCode("b1a");
+
+        assertThat(shortCode).isNotBlank();
+        assertThat(shortCode).isEqualTo("dummy");
+
+        verify(urlRepository).findByShortCode("b1a");
+    }
+
+    @Test
+    void resolveShortCode_whenShortCodeContainsUnconfiguredCharacter_rejectsIt() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 3);
+        ReflectionTestUtils.setField(urlService, "characterSet", "abc123");
+
+        assertThatThrownBy(() -> urlService.resolveShortCode("a1x"))
+                .isInstanceOf(InvalidShortCodeException.class)
+                .hasMessage("Short code contains an invalid character.");
+
+        verifyNoInteractions(urlRepository);
     }
 }
