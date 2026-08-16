@@ -20,10 +20,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -442,5 +443,84 @@ class UrlServiceTest {
                 .hasMessage("Short code contains an invalid character.");
 
         verifyNoInteractions(urlRepository);
+    }
+
+    @Test
+    void shortenUrl_whenCreatingShortUrl_setsExpirationDate() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+        ReflectionTestUtils.setField(urlService, "shortCodeExpirationDays", MotherObject.SHORT_URL_EXPIRATION_DAYS);
+
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("https://example.com"));
+
+        assertThat(response).isNotNull();
+        assertThat(response.shortenedUrl()).isNotBlank();
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).save(shortUrlArgumentCaptor.capture());
+
+        ShortUrl shortUrl = shortUrlArgumentCaptor.getValue();
+        assertThat(shortUrl.getExpiresAt()).isNotNull();
+        assertThat(shortUrl.getExpiresAt()).isCloseTo(
+                LocalDateTime.now().plusDays(MotherObject.SHORT_URL_EXPIRATION_DAYS),
+                within(1, ChronoUnit.SECONDS)
+        );
+    }
+
+    @Test
+    void shortenUrl_whenExistingUrlHasNotExpired_returnsExistingShortCode() {
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.of(MotherObject.anyValidShortUrl2()));
+        CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("https://example.com"));
+
+        assertThat(response).isNotNull();
+        assertThat(response.shortenedUrl()).isEqualTo("dummy");
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository, never()).save(any(ShortUrl.class));
+        verify(urlRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shortenUrl_whenExistingUrlHasExpired_deletesAndCreatesNewShortUrl() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+        ReflectionTestUtils.setField(urlService, "shortCodeExpirationDays", MotherObject.SHORT_URL_EXPIRATION_DAYS);
+
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.of(MotherObject.anyExpiredShortUrl()));
+        when(urlRepository.save(any(ShortUrl.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("https://example.com"));
+
+        assertThat(response).isNotNull();
+        assertThat(response.shortenedUrl()).isNotBlank();
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).findByShortCode(anyString());
+
+        verify(urlRepository).save(shortUrlArgumentCaptor.capture());
+        ShortUrl shortUrl = shortUrlArgumentCaptor.getValue();
+        assertThat(shortUrl.getOriginalUrl()).isEqualTo("https://example.com");
+        assertThat(shortUrl.getShortCode()).isNotBlank();
+        assertThat(shortUrl.getShortCode()).hasSize(6);
+        assertThat(shortUrl.getExpiresAt()).isCloseTo(
+                LocalDateTime.now().plusDays(MotherObject.SHORT_URL_EXPIRATION_DAYS),
+                within(1, ChronoUnit.SECONDS)
+        );
+
+        verify(urlRepository).deleteById(any());
+    }
+
+    @Test
+    void resolveShortCode_whenShortCodeIsExpired_throwsException() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(MotherObject.anyExpiredShortUrl()));
+
+        assertThatThrownBy(() -> urlService.resolveShortCode("abc123"))
+                .isInstanceOf(ShortUrlNotFoundException.class)
+                .hasMessage("Short Url does not exist.");
+
+        verify(urlRepository, times(1)).findByShortCode(anyString());
     }
 }

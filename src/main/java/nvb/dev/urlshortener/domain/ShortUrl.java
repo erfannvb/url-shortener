@@ -29,6 +29,8 @@ public class ShortUrl {
 
     private LocalDateTime createdAt;
 
+    private LocalDateTime expiresAt;
+
     @PrePersist
     public void initializeCreatedAt() {
         if (this.createdAt == null)

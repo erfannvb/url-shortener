@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -32,6 +33,8 @@ public class UrlService {
     private int shortCodeLength;
     @Value("${url.short.code.characters}")
     private String characterSet;
+    @Value("${url.short.code.expiration.days}")
+    private long shortCodeExpirationDays;
 
     private final UrlRepository urlRepository;
 
@@ -46,7 +49,12 @@ public class UrlService {
 
         Optional<ShortUrl> existingShortUrl = urlRepository.findByOriginalUrl(normalizedUrl);
         if (existingShortUrl.isPresent()) {
-            return mapShortUrlToResponse(existingShortUrl.get());
+            ShortUrl shortUrl = existingShortUrl.get();
+            if (!shortUrl.getExpiresAt().isBefore(LocalDateTime.now())) {
+                return mapShortUrlToResponse(existingShortUrl.get());
+            } else {
+                urlRepository.deleteById(shortUrl.getId());
+            }
         }
 
         ShortUrl shortUrl = generateUniqueShortCode(normalizedUrl);
@@ -61,6 +69,7 @@ public class UrlService {
             throw new InvalidShortCodeException("Short code contains an invalid character.");
 
         return urlRepository.findByShortCode(shortCode)
+                .filter(shortUrl -> !shortUrl.getExpiresAt().isBefore(LocalDateTime.now()))
                 .map(ShortUrl::getOriginalUrl)
                 .orElseThrow(() -> new ShortUrlNotFoundException("Short Url does not exist."));
     }
@@ -88,6 +97,7 @@ public class UrlService {
             ShortUrl shortUrl = ShortUrl.builder()
                     .originalUrl(originalUrl)
                     .shortCode(shortCode)
+                    .expiresAt(LocalDateTime.now().plusDays(shortCodeExpirationDays))
                     .build();
 
             try {
