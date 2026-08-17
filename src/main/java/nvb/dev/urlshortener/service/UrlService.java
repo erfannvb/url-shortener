@@ -20,6 +20,9 @@ import java.net.URISyntaxException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +31,7 @@ public class UrlService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int MAX_GENERATION_ATTEMPTS = 10;
     private static final UrlValidator URL_VALIDATOR = new UrlValidator(new String[]{"http", "https"});
+    private static final Lock LOCK = new ReentrantLock();
 
     @Value("${url.short.code.length}")
     private int shortCodeLength;
@@ -89,23 +93,35 @@ public class UrlService {
         String shortCode;
 
         for (int i = 0; i < MAX_GENERATION_ATTEMPTS; i++) {
-            shortCode = generateShortCode();
-            Optional<ShortUrl> existingShortCode = urlRepository.findByShortCode(shortCode);
-            if (existingShortCode.isPresent())
-                continue;
-
-            ShortUrl shortUrl = ShortUrl.builder()
-                    .originalUrl(originalUrl)
-                    .shortCode(shortCode)
-                    .expiresAt(LocalDateTime.now().plusDays(shortCodeExpirationDays))
-                    .build();
-
             try {
-                return urlRepository.save(shortUrl);
-            } catch (DataIntegrityViolationException e) {
-                continue;
-            }
+                boolean lock = LOCK.tryLock(5, TimeUnit.SECONDS);
+                if (!lock)
+                    continue;
 
+                try {
+                    shortCode = generateShortCode();
+                    Optional<ShortUrl> existingShortCode = urlRepository.findByShortCode(shortCode);
+                    if (existingShortCode.isPresent())
+                        continue;
+
+                    ShortUrl shortUrl = ShortUrl.builder()
+                            .originalUrl(originalUrl)
+                            .shortCode(shortCode)
+                            .expiresAt(LocalDateTime.now().plusDays(shortCodeExpirationDays))
+                            .build();
+
+                    try {
+                        return urlRepository.save(shortUrl);
+                    } catch (DataIntegrityViolationException e) {
+                        continue;
+                    }
+                } finally {
+                    LOCK.unlock();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new ShortCodeGenerationException("Short code generation was interrupted.", e);
+            }
         }
 
         throw new ShortCodeGenerationException("Short code could not be generated.");

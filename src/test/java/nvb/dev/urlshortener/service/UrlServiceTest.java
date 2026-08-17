@@ -22,7 +22,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -522,5 +525,58 @@ class UrlServiceTest {
                 .hasMessage("Short Url does not exist.");
 
         verify(urlRepository, times(1)).findByShortCode(anyString());
+    }
+
+    @Test
+    void shortenUrl_whenCalledConcurrently_generatesUniqueShortCodes() throws InterruptedException, ExecutionException {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(20)) {
+
+            CountDownLatch ready = new CountDownLatch(20);
+            CountDownLatch start = new CountDownLatch(1);
+
+            List<Callable<CreateUrlResponse>> tasks = new ArrayList<>();
+            for (int i = 0; i < 20; i++) {
+                String url = "http://example" + i + ".com";
+                tasks.add(() -> {
+                    ready.countDown();
+                    start.await();
+                    return urlService.shortenUrl(new CreateUrlRequest(url));
+                });
+            }
+
+            List<Future<CreateUrlResponse>> futures = tasks.stream()
+                    .map(executor::submit)
+                    .toList();
+
+            ready.await();
+            start.countDown();
+
+            List<String> shortCodes = new ArrayList<>();
+
+            for (Future<CreateUrlResponse> future : futures) {
+                CreateUrlResponse response = future.get();
+                shortCodes.add(response.shortenedUrl());
+            }
+
+            assertThat(shortCodes).hasSize(20)
+                    .allMatch(code -> code.length() == 6)
+                    .doesNotHaveDuplicates();
+
+            verify(urlRepository, times(20)).save(shortUrlArgumentCaptor.capture());
+            List<String> savedShortCodes = shortUrlArgumentCaptor.getAllValues()
+                    .stream()
+                    .map(ShortUrl::getShortCode)
+                    .toList();
+
+            assertThat(savedShortCodes)
+                    .hasSize(20)
+                    .doesNotHaveDuplicates();
+        }
     }
 }
