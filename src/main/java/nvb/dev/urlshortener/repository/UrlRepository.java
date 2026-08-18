@@ -2,8 +2,11 @@ package nvb.dev.urlshortener.repository;
 
 import nvb.dev.urlshortener.domain.ShortUrl;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,5 +19,9 @@ public interface UrlRepository extends JpaRepository<ShortUrl, UUID> {
     Optional<ShortUrl> findByShortCode(String shortCode);
 
     List<ShortUrl> findAllByOriginalUrl(String originalUrl);
+
+    @Modifying
+    @Transactional
+    void deleteAllByExpiresAtBefore(LocalDateTime expiresAtBefore);
 
 }

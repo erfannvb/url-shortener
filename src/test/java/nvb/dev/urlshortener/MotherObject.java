@@ -70,4 +70,14 @@ public class MotherObject {
                 LocalDateTime.now().minusDays(SHORT_URL_EXPIRATION_DAYS)
         );
     }
+
+    public static ShortUrl anyNewValidShortUrl() {
+        return new ShortUrl(
+                null,
+                "https://test.org",
+                "xyz578",
+                LocalDateTime.now(),
+                LocalDateTime.now().plusDays(SHORT_URL_EXPIRATION_DAYS)
+        );
+    }
 }

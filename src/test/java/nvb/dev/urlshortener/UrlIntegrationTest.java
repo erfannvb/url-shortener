@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -209,5 +210,17 @@ public class UrlIntegrationTest {
 
         assertThatThrownBy(() -> urlRepository.saveAndFlush(duplicate))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void deleteAllByExpiresAtBefore_deletesExpiredUrlsAndKeepsValidUrls() {
+        ShortUrl expiredShortUrl = MotherObject.anyExpiredShortUrl();
+        ShortUrl validShortUrl = MotherObject.anyNewValidShortUrl();
+
+        urlRepository.saveAll(List.of(expiredShortUrl, validShortUrl));
+        urlRepository.deleteAllByExpiresAtBefore(LocalDateTime.now());
+
+        assertThat(urlRepository.existsById(expiredShortUrl.getId())).isFalse();
+        assertThat(urlRepository.existsById(validShortUrl.getId())).isTrue();
     }
 }
