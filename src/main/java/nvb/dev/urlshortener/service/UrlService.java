@@ -41,6 +41,7 @@ public class UrlService {
     private long shortCodeExpirationDays;
 
     private final UrlRepository urlRepository;
+    private final CachedShortUrlService cachedShortUrlService;
 
     @Transactional
     public CreateUrlResponse shortenUrl(CreateUrlRequest request) {
@@ -72,10 +73,18 @@ public class UrlService {
         if (!containsOnlyAllowedCharacters(shortCode))
             throw new InvalidShortCodeException("Short code contains an invalid character.");
 
-        return urlRepository.findByShortCode(shortCode)
-                .filter(shortUrl -> !shortUrl.getExpiresAt().isBefore(LocalDateTime.now()))
-                .map(ShortUrl::getOriginalUrl)
+        Optional<String> originalUrl = cachedShortUrlService.getOriginalUrl(shortCode);
+        if (originalUrl.isPresent())
+            return originalUrl.get();
+
+        Optional<ShortUrl> existingShortUrl = urlRepository.findByShortCode(shortCode);
+        ShortUrl shortUrl = existingShortUrl
+                .filter(url -> !url.getExpiresAt().isBefore(LocalDateTime.now()))
                 .orElseThrow(() -> new ShortUrlNotFoundException("Short Url does not exist."));
+
+        cachedShortUrlService.cacheOriginalUrl(shortCode, shortUrl.getOriginalUrl(), shortUrl.getExpiresAt());
+
+        return shortUrl.getOriginalUrl();
     }
 
     private String generateShortCode() {

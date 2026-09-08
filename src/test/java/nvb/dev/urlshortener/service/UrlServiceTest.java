@@ -37,6 +37,9 @@ import static org.mockito.Mockito.*;
 class UrlServiceTest {
 
     @Mock
+    private CachedShortUrlService cachedShortUrlService;
+
+    @Mock
     private UrlRepository urlRepository;
 
     @InjectMocks
@@ -137,21 +140,6 @@ class UrlServiceTest {
     }
 
     @Test
-    void resolveShortCode_whenShortCodeExists_returnsOriginalUrl() {
-        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
-
-        when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(MotherObject.anyValidShortUrl()));
-        String originalUrl = urlService.resolveShortCode("abc123");
-        assertAll(
-                () -> assertThat(originalUrl).isNotNull(),
-                () -> {
-                    assertThat(originalUrl).isEqualTo("dummy");
-                }
-        );
-        verify(urlRepository).findByShortCode(anyString());
-    }
-
-    @Test
     void resolveShortCode_whenShortCodeIsTooShort_throwsException() {
         ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
 
@@ -160,6 +148,7 @@ class UrlServiceTest {
                 .hasMessage("Short code is too short.");
 
         verifyNoInteractions(urlRepository);
+        verifyNoInteractions(cachedShortUrlService);
     }
 
     @Test
@@ -171,6 +160,7 @@ class UrlServiceTest {
                 .hasMessage("Short code is too long.");
 
         verifyNoInteractions(urlRepository);
+        verifyNoInteractions(cachedShortUrlService);
     }
 
     @Test
@@ -182,6 +172,7 @@ class UrlServiceTest {
                 .hasMessage("Short code contains an invalid character.");
 
         verifyNoInteractions(urlRepository);
+        verifyNoInteractions(cachedShortUrlService);
     }
 
     @Test
@@ -518,6 +509,7 @@ class UrlServiceTest {
     void resolveShortCode_whenShortCodeIsExpired_throwsException() {
         ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
 
+        when(cachedShortUrlService.getOriginalUrl(anyString())).thenReturn(Optional.empty());
         when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(MotherObject.anyExpiredShortUrl()));
 
         assertThatThrownBy(() -> urlService.resolveShortCode("abc123"))
@@ -525,6 +517,7 @@ class UrlServiceTest {
                 .hasMessage("Short Url does not exist.");
 
         verify(urlRepository, times(1)).findByShortCode(anyString());
+        verify(cachedShortUrlService, never()).cacheOriginalUrl(anyString(), anyString(), any(LocalDateTime.class));
     }
 
     @Test
@@ -578,5 +571,51 @@ class UrlServiceTest {
                     .hasSize(20)
                     .doesNotHaveDuplicates();
         }
+    }
+
+    @Test
+    void resolveShortCode_whenCacheHits_returnsCachedUrl() {
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        when(cachedShortUrlService.getOriginalUrl(anyString())).thenReturn(Optional.of("https://example.com"));
+
+        String originalUrl = urlService.resolveShortCode("abc123");
+        assertThat(originalUrl).isNotNull();
+        assertThat(originalUrl).isEqualTo("https://example.com");
+
+        verify(urlRepository, never()).findByShortCode(anyString());
+    }
+
+    @Test
+    void resolveShortCode_whenCacheMissesAndUrlExists_returnsOriginalUrl() {
+        ShortUrl shortUrl = MotherObject.anyValidShortUrl();
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        when(cachedShortUrlService.getOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(shortUrl));
+
+        String originalUrl = urlService.resolveShortCode("abc123");
+        assertThat(originalUrl).isNotBlank();
+        assertThat(originalUrl).isEqualTo("dummy");
+
+        verify(urlRepository).findByShortCode(anyString());
+        verify(cachedShortUrlService).getOriginalUrl(anyString());
+        verify(cachedShortUrlService).cacheOriginalUrl("abc123", shortUrl.getOriginalUrl(), shortUrl.getExpiresAt());
+    }
+
+    @Test
+    void resolveShortCode_whenCacheFails_fallsBackToDatabase() {
+        ShortUrl shortUrl = MotherObject.anyValidShortUrl();
+        ReflectionTestUtils.setField(urlService, "shortCodeLength", 6);
+
+        when(cachedShortUrlService.getOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.findByShortCode(anyString())).thenReturn(Optional.of(shortUrl));
+
+        String originalUrl = urlService.resolveShortCode("abc123");
+        assertThat(originalUrl).isNotBlank();
+        assertThat(originalUrl).isEqualTo(shortUrl.getOriginalUrl());
+
+        verify(cachedShortUrlService).getOriginalUrl(anyString());
+        verify(urlRepository).findByShortCode(anyString());
     }
 }
