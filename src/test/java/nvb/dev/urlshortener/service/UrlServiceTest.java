@@ -618,4 +618,25 @@ class UrlServiceTest {
         verify(cachedShortUrlService).getOriginalUrl(anyString());
         verify(urlRepository).findByShortCode(anyString());
     }
+
+    @Test
+    void shortenUrl_whenCreatingNewUrl_cachesOriginalUrl() {
+        ShortUrl shortUrl = MotherObject.anyValidShortUrl();
+
+        when(urlRepository.findByOriginalUrl(anyString())).thenReturn(Optional.empty());
+        when(urlRepository.save(any(ShortUrl.class))).thenReturn(shortUrl);
+
+        CreateUrlResponse response = urlService.shortenUrl(new CreateUrlRequest("https://google.com"));
+
+        assertThat(response).isNotNull();
+        assertThat(response.shortenedUrl()).isEqualTo(shortUrl.getShortCode());
+
+        verify(urlRepository).findByOriginalUrl(anyString());
+        verify(urlRepository).save(any(ShortUrl.class));
+        verify(cachedShortUrlService).cacheOriginalUrl(
+                shortUrl.getShortCode(),
+                shortUrl.getOriginalUrl(),
+                shortUrl.getExpiresAt()
+        );
+    }
 }

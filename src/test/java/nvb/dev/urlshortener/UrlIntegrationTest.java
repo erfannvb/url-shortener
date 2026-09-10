@@ -120,7 +120,7 @@ public class UrlIntegrationTest {
                         .content(objectMapper.writeValueAsString(new CreateUrlRequest("google.com")))
                 )
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Url must start with http:// or https://"))
+                .andExpect(jsonPath("$.message").value("Invalid URL."))
                 .andExpect(jsonPath("$.statusCode").value(400));
 
         Optional<ShortUrl> foundShortUrl = urlRepository.findByOriginalUrl("google.com");

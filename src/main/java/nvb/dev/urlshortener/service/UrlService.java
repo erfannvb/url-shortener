@@ -63,6 +63,11 @@ public class UrlService {
         }
 
         ShortUrl shortUrl = generateUniqueShortCode(normalizedUrl);
+        cachedShortUrlService.cacheOriginalUrl(
+                shortUrl.getShortCode(),
+                shortUrl.getOriginalUrl(),
+                shortUrl.getExpiresAt()
+        );
         return mapShortUrlToResponse(shortUrl);
     }
 
