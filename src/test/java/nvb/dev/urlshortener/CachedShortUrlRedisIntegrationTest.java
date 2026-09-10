@@ -1,15 +1,10 @@
 package nvb.dev.urlshortener;
 
-import nvb.dev.urlshortener.domain.ShortUrl;
-import nvb.dev.urlshortener.repository.UrlRepository;
 import nvb.dev.urlshortener.service.CachedShortUrlService;
-import nvb.dev.urlshortener.service.UrlService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -18,6 +13,8 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,71 +38,51 @@ public class CachedShortUrlRedisIntegrationTest {
     private CachedShortUrlService cachedShortUrlService;
 
     @Autowired
-    private UrlService urlService;
-
-    @Autowired
-    private UrlRepository urlRepository;
-
-    @Autowired
-    private CacheManager cacheManager;
-
-    @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
     @BeforeEach
     void setUp() {
-        urlRepository.deleteAll();
-
-        Cache cache = cacheManager.getCache("shortUrls");
-        if (cache != null)
-            cache.clear();
+        stringRedisTemplate.delete("url:abc123");
     }
 
     @Test
-    void getOriginalUrl_whenCacheMisses_fetchesFromDatabaseAndStoresInRedis() {
-        ShortUrl shortUrl = MotherObject.validShortUrlForIntegrationTest();
-        urlRepository.save(shortUrl);
-
-        Optional<String> originalUrl = cachedShortUrlService.getOriginalUrl(shortUrl.getShortCode());
-
-        assertThat(originalUrl).isEqualTo(shortUrl.getOriginalUrl());
-
-        Cache cache = cacheManager.getCache("shortUrls");
-        assertThat(cache).isNotNull();
-
-        Cache.ValueWrapper cachedValue = cache.get("url:" + shortUrl.getShortCode());
-        assertThat(cachedValue).isNotNull();
-        assertThat(cachedValue.get()).isEqualTo(shortUrl.getOriginalUrl());
+    void getOriginalUrl_whenCacheMisses_returnsEmpty() {
+        Optional<String> originalUrl = cachedShortUrlService.getOriginalUrl("abc123");
+        assertThat(originalUrl).isEmpty();
     }
 
     @Test
     void getOriginalUrl_whenCacheHits_returnsValueFromRedis() {
-        ShortUrl shortUrl = MotherObject.validShortUrlForIntegrationTest();
-        urlRepository.save(shortUrl);
+        stringRedisTemplate.opsForValue().set("url:abc123", "https://example.com", Duration.ofMinutes(1));
 
-        Cache cache = cacheManager.getCache("shortUrls");
-        assertThat(cache).isNotNull();
-
-        cache.put("url:" + shortUrl.getShortCode(), shortUrl.getOriginalUrl());
-
-        urlRepository.deleteAll();
-
-        Optional<String> originalUrl = cachedShortUrlService.getOriginalUrl(shortUrl.getShortCode());
-        assertThat(originalUrl)
-                .isEqualTo(shortUrl.getOriginalUrl());
+        Optional<String> originalUrl = cachedShortUrlService.getOriginalUrl("abc123");
+        assertThat(originalUrl).contains("https://example.com");
     }
 
     @Test
-    void getOriginalUrl_whenCacheMisses_storesExpectedKeyAndValueInRedis() {
-        ShortUrl shortUrl = MotherObject.validShortUrlForIntegrationTest();
-        urlRepository.save(shortUrl);
+    void cacheOriginalUrl_storesExpectedKeyAndValueInRedis() {
+        cachedShortUrlService.cacheOriginalUrl("abc123", "https://example.com", LocalDateTime.now().plusMinutes(4));
 
-        Optional<String> originalUrl = cachedShortUrlService.getOriginalUrl(shortUrl.getShortCode());
+        String originalUrl = stringRedisTemplate.opsForValue().get("url:abc123");
+        assertThat(originalUrl).isEqualTo("https://example.com");
+    }
 
-        String expectedKey = "url:" + shortUrl.getShortCode();
-        String cachedValue = stringRedisTemplate.opsForValue().get(expectedKey);
+    @Test
+    void cacheOriginalUrl_setsExpectedTtl() {
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
+        cachedShortUrlService.cacheOriginalUrl("abc123", "https://example.com", expiresAt);
 
-        assertThat(originalUrl.get()).isEqualTo(shortUrl.getOriginalUrl());
-        assertThat(cachedValue).isEqualTo(shortUrl.getOriginalUrl());
+        Long expireValue = stringRedisTemplate.getExpire("url:abc123");
+
+        assertThat(expireValue).isPositive();
+        assertThat(expireValue).isBetween(590L, 600L);
+    }
+
+    @Test
+    void cacheOriginalUrl_whenAlreadyExpired_doesNotCache() {
+        LocalDateTime expiresAt = LocalDateTime.now().minusDays(10);
+        cachedShortUrlService.cacheOriginalUrl("abc123", "https://example.com", expiresAt);
+
+        assertThat(stringRedisTemplate.hasKey("url:abc123")).isFalse();
     }
 }
