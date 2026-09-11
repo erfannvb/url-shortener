@@ -43,4 +43,12 @@ public class CachedShortUrlService {
         }
     }
 
+    public void invalidateCache(String shortCode) {
+        try {
+            stringRedisTemplate.delete(URL_KEY_PREFIX + shortCode);
+        } catch (RedisConnectionFailureException e) {
+            log.warn("{}", e.getMessage());
+        }
+    }
+
 }

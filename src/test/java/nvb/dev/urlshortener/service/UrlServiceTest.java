@@ -503,6 +503,7 @@ class UrlServiceTest {
         );
 
         verify(urlRepository).deleteById(any());
+        verify(cachedShortUrlService).invalidateCache(anyString());
     }
 
     @Test

@@ -129,4 +129,22 @@ class CachedShortUrlServiceTest {
                 any(Duration.class)
         );
     }
+
+    @Test
+    void invalidateCache_whenUrlExists_invalidatesCache() {
+        cachedShortUrlService.invalidateCache("abc123");
+        verify(stringRedisTemplate).delete(anyString());
+    }
+
+    @Test
+    void invalidateCache_whenRedisFails_doesNotPropagateException() {
+        doThrow(new RedisConnectionFailureException("Redis unavailable"))
+                .when(stringRedisTemplate)
+                .delete("url:abc123");
+
+        assertThatCode(() -> cachedShortUrlService.invalidateCache("abc123"))
+                .doesNotThrowAnyException();
+
+        verify(stringRedisTemplate).delete("url:abc123");
+    }
 }

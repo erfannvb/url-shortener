@@ -59,6 +59,7 @@ public class UrlService {
                 return mapShortUrlToResponse(existingShortUrl.get());
             } else {
                 urlRepository.deleteById(shortUrl.getId());
+                cachedShortUrlService.invalidateCache(shortUrl.getShortCode());
             }
         }
 
