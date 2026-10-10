@@ -15,7 +15,8 @@ import java.util.UUID;
 @Component
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
-    private static final String CORRELATION_ID_HEADER_NAME = "X-Correlation-Id";
+    private static final String CORRELATION_ID_HEADER_NAME = "X-Correlation-ID";
+    private static final String CORRELATION_ID_MDC_KEY = "correlationId";
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -23,14 +24,28 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         String correlationIdHeader = request.getHeader(CORRELATION_ID_HEADER_NAME);
-        if (correlationIdHeader == null || correlationIdHeader.isEmpty())
-            correlationIdHeader = UUID.randomUUID().toString();
+        String resolvedCorrelationId = resolveCorrelationId(correlationIdHeader);
 
-        MDC.put(CORRELATION_ID_HEADER_NAME, correlationIdHeader);
+        MDC.put(CORRELATION_ID_MDC_KEY, resolvedCorrelationId);
         try {
+            response.addHeader(CORRELATION_ID_HEADER_NAME, resolvedCorrelationId);
             filterChain.doFilter(request, response);
         } finally {
-            MDC.remove(CORRELATION_ID_HEADER_NAME);
+            MDC.remove(CORRELATION_ID_MDC_KEY);
         }
+    }
+
+    private String resolveCorrelationId(String correlationId) {
+        if (correlationId == null || correlationId.isBlank())
+            return UUID.randomUUID().toString();
+
+        try {
+            String givenUUID = UUID.fromString(correlationId).toString();
+            if (givenUUID.equalsIgnoreCase(correlationId))
+                return givenUUID;
+        } catch (IllegalArgumentException ignored) {
+        }
+
+        return UUID.randomUUID().toString();
     }
 }
